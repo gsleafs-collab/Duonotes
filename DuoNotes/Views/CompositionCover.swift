@@ -2,34 +2,40 @@ import SwiftUI
 
 /// The classic marbled composition book cover with a white title label.
 struct CompositionCover: View {
-    static let aspectRatio: CGFloat = PaperMetrics.size.width / PaperMetrics.size.height
+    /// Shape of the small covers on the bookshelf.
+    static let aspectRatio: CGFloat = 0.72
 
     let title: String
     let style: CoverStyle
     /// Gives each notebook its own marble pattern that never changes.
     let seed: UUID
+    /// Fills the screen edge to edge with no rounded corners or shadow.
+    var fullBleed = false
 
     var body: some View {
         GeometryReader { geo in
             let size = geo.size
-            ZStack(alignment: .leading) {
+            let spine = min(size.width * 0.11, 64)
+            let labelWidth = min((size.width - spine) * 0.74, size.height * 0.5)
+            ZStack(alignment: .topLeading) {
                 MarbleView(ink: style.ink, seed: seed)
 
                 // Cloth tape over the spine.
                 Rectangle()
                     .fill(style.ink)
-                    .frame(width: size.width * 0.11)
+                    .frame(width: spine, height: size.height)
                     .overlay(alignment: .trailing) {
                         Rectangle().fill(.white.opacity(0.18)).frame(width: 1)
                     }
 
-                label(width: size.width * 0.66)
-                    .position(x: size.width * 0.555, y: size.height * 0.27)
+                label(width: labelWidth)
+                    .position(x: spine + (size.width - spine) / 2, y: size.height * 0.28)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.black.opacity(0.35), lineWidth: 1))
-        .shadow(color: .black.opacity(0.35), radius: 4, x: 2, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: fullBleed ? 0 : 4))
+        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.black.opacity(fullBleed ? 0 : 0.35), lineWidth: 1))
+        .shadow(color: .black.opacity(fullBleed ? 0 : 0.35), radius: 4, x: 2, y: 3)
+        .environment(\.colorScheme, .light)
     }
 
     private func label(width: CGFloat) -> some View {
@@ -37,13 +43,15 @@ struct CompositionCover: View {
             Text("COMPOSITION BOOK")
                 .font(.system(size: width * 0.075, weight: .heavy, design: .serif))
                 .tracking(width * 0.006)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
             VStack(spacing: width * 0.02) {
                 Text(title.isEmpty ? " " : title)
                     .font(.custom("Noteworthy-Bold", size: width * 0.11))
                     .lineLimit(2)
                     .minimumScaleFactor(0.5)
                     .multilineTextAlignment(.center)
-                Rectangle().frame(height: 0.75)
+                Rectangle().frame(height: max(0.75, width * 0.004))
             }
         }
         .foregroundStyle(.black)
@@ -51,11 +59,12 @@ struct CompositionCover: View {
         .padding(.vertical, width * 0.06)
         .frame(width: width)
         .background(.white, in: RoundedRectangle(cornerRadius: width * 0.05))
-        .overlay(RoundedRectangle(cornerRadius: width * 0.05).strokeBorder(.black, lineWidth: 1.5))
+        .overlay(RoundedRectangle(cornerRadius: width * 0.05).strokeBorder(.black, lineWidth: max(1.5, width * 0.008)))
+        .shadow(color: .black.opacity(0.3), radius: width * 0.02, y: width * 0.015)
     }
 }
 
-/// Black and white marbling built from many random blobs.
+/// Black and white marbling built from many overlapping random blobs.
 struct MarbleView: View {
     let ink: Color
     let seed: UUID
@@ -64,23 +73,24 @@ struct MarbleView: View {
         Canvas { context, size in
             context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.white))
             var rng = SeededGenerator(seed: seed)
-            let unit = max(size.width / 160, 0.5)
-            let count = Int(size.width * size.height / (unit * unit * 55))
+            let unit = max(min(size.width, size.height) / 150, 0.4)
+            let count = min(Int(size.width * size.height / (unit * unit * 9)), 12_000)
 
             for index in 0..<count {
-                let center = CGPoint(x: .random(in: 0...size.width, using: &rng),
-                                     y: .random(in: 0...size.height, using: &rng))
-                let width = CGFloat.random(in: 2...9, using: &rng) * unit
-                let height = CGFloat.random(in: 1...4, using: &rng) * unit
+                let center = CGPoint(x: CGFloat.random(in: 0...size.width, using: &rng),
+                                     y: CGFloat.random(in: 0...size.height, using: &rng))
+                let width = CGFloat.random(in: 2...11, using: &rng) * unit
+                let height = CGFloat.random(in: 1...5, using: &rng) * unit
                 let angle = CGFloat.random(in: 0...CGFloat.pi, using: &rng)
                 let blob = Path(ellipseIn: CGRect(x: -width / 2, y: -height / 2, width: width, height: height))
                     .applying(CGAffineTransform(rotationAngle: angle))
                     .applying(CGAffineTransform(translationX: center.x, y: center.y))
-                // Mostly dark ink with a few white flecks on top.
-                let color: Color = index % 7 == 6 ? .white : ink
+                // Two dark blobs for every white one gives the classic marbled look.
+                let color: Color = index % 3 == 2 ? .white : ink
                 context.fill(blob, with: .color(color))
             }
         }
+        .drawingGroup()
     }
 }
 

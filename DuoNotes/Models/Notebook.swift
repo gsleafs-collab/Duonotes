@@ -33,13 +33,36 @@ struct Notebook: Identifiable, Codable, Hashable {
     var pages: [Page] = [Page(), Page()]
 }
 
-/// Logical size of one sheet of paper. Drawings are stored in these
-/// coordinates so writing lines up with the rules on any screen size.
-/// Sized for the iPhone Duo: about 1:1 on the outer screen, larger when
-/// unfolded. 34 pt rules come out near college ruled on the Duo's displays.
+/// Page layout in logical points. Drawings are stored in these coordinates,
+/// so writing stays on its line whether the page is shown folded, unfolded
+/// or as half of a spread. The page width is fixed and the height follows
+/// the screen, which on the iPhone Duo is close to 1.42 times the width in
+/// every layout.
 enum PaperMetrics {
-    static let size = CGSize(width: 440, height: 620)
+    static let width: CGFloat = 440
     static let lineSpacing: CGFloat = 34
     static let topMargin: CGFloat = 80
     static let leftMargin: CGFloat = 52
+}
+
+/// Paper colours for light and dark mode.
+struct PaperPalette {
+    let paper: UIColor
+    let rule: UIColor
+    let margin: UIColor
+    let number: UIColor
+
+    init(dark: Bool) {
+        if dark {
+            paper = UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
+            rule = UIColor(red: 0.25, green: 0.34, blue: 0.46, alpha: 1)
+            margin = UIColor(red: 0.52, green: 0.25, blue: 0.29, alpha: 1)
+            number = UIColor(white: 0.5, alpha: 1)
+        } else {
+            paper = UIColor(red: 0.99, green: 0.98, blue: 0.95, alpha: 1)
+            rule = UIColor(red: 0.62, green: 0.76, blue: 0.92, alpha: 1)
+            margin = UIColor(red: 0.91, green: 0.50, blue: 0.55, alpha: 1)
+            number = UIColor(white: 0.55, alpha: 1)
+        }
+    }
 }

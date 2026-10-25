@@ -4,12 +4,18 @@ Composition notebooks for the iPhone Duo. Write on lined paper with Apple Pencil
 
 ## What it does
 
-- **Shelf of notebooks.** Each one has a black and white marbled cover with its own pattern and a white title label. Long press a notebook to rename it, change the cover colour or delete it.
-- **Opening a notebook** flips the cover open onto lined paper with blue rules and a red margin.
-- **One page or two.** Folded (outer screen) you see one page. Unfold the Duo and turn it sideways to get the open book spread with the spine down the middle. Use the book button in the top bar to force one or two pages.
-- **Pencil writes, finger moves.** Apple Pencil writes. Drag ink with your finger to pick up that word or doodle and move it. Swipe across blank paper to turn the page.
-- **Finger writes mode.** Tap "Finger moves" in the palette to switch, which is handy without a Pencil.
-- **Tools:** pen, pencil, highlighter, eraser and lasso, four ink colours and three thicknesses. Undo and redo work across pages.
+- **Front screen.** The current notebook's marbled cover fills the screen. Swipe left or right to switch books and tap the cover to open it. The books button in the corner adds, renames, recolours or deletes notebooks.
+- **Opening a notebook** swings the cover open onto lined paper that fills the screen.
+- **One page or two.** Held upright you get one page. Turn the phone sideways and it opens into a two page spread with the spine down the middle.
+- **Page flipping.** Drag from the right edge with a finger to flip forward, or from the left edge to flip back. Flipping past the last page adds fresh paper.
+- **Pencil writes, finger moves.** Apple Pencil writes. Drag ink with a finger to pick up that word or doodle and move it.
+- **Pen menu.** A small round pen button in the corner opens the menu:
+  - Pen, pencil, highlighter, eraser and lasso
+  - Three ink colours. Tap the selected one to choose any colour from the colour wheel.
+  - Tip size and eraser size, with presets and a slider
+  - Finger mode: moves ink or writes
+  - Appearance: Auto (follows the phone), Light or Dark
+  - Undo, redo and Close Book
 - Notebooks save automatically on the device.
 
 ## Running it
@@ -31,11 +37,11 @@ DuoNotes/
   Models/
     Notebook.swift         Notebook, Page, cover styles, paper sizes
     NotebookStore.swift    Saving, loading, undo and redo
-    ToolState.swift        Pens, colours, thickness
+    PenSettings.swift      Pen, colours, sizes, appearance
   Views/
-    LibraryView.swift      Notebook shelf and new notebook sheet
-    NotebookView.swift     Open notebook, page turning, tool palette
-    PaperPage.swift        Lined paper
-    CanvasView.swift       PencilKit canvas and finger move gesture
+    HomeView.swift         Full screen cover, bookshelf, new notebook sheet
+    NotebookView.swift     Open notebook and cover animation
+    BookPager.swift        Page curl, lined paper, PencilKit canvas, finger move
+    PenMenu.swift          Collapsible pen menu and colour wheel
     CompositionCover.swift Marbled cover
 ```

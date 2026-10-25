@@ -32,8 +32,9 @@ final class NotebookStore {
         }
     }
 
-    var recentNotebooks: [Notebook] {
-        notebooks.sorted { $0.updatedAt > $1.updatedAt }
+    /// Notebooks in the order they were made, so swiping between covers stays predictable.
+    var shelf: [Notebook] {
+        notebooks.sorted { $0.createdAt < $1.createdAt }
     }
 
     func notebook(_ id: UUID) -> Notebook? {
@@ -71,8 +72,9 @@ final class NotebookStore {
     }
 
     /// Adds blank pages until the notebook has at least `count` pages.
+    /// Pages come in pairs, like sheets of paper, so a two page spread is always complete.
     func ensurePageCount(_ id: UUID, _ count: Int) {
-        let target = min(count, Self.maxPages)
+        let target = min(count + count % 2, Self.maxPages)
         guard let notebook = notebook(id), notebook.pages.count < target else { return }
         mutate(id) { notebook in
             while notebook.pages.count < target {
