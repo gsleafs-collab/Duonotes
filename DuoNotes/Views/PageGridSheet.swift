@@ -2,13 +2,19 @@ import PencilKit
 import SwiftUI
 
 /// Thumbnails of every page, opened by tapping a page number.
+/// Tap a page to jump to it. Use Select to delete several pages, or touch
+/// and hold one page to delete it.
 struct PageGridSheet: View {
     let notebook: Notebook
     let visiblePages: Set<Int>
     let dark: Bool
     var onSelect: (Int) -> Void
+    var onDelete: (Set<UUID>) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @State private var selecting = false
+    @State private var selected: Set<UUID> = []
+    @State private var pendingDelete: Set<UUID> = []
 
     var body: some View {
         NavigationStack {
@@ -16,25 +22,8 @@ struct PageGridSheet: View {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 92, maximum: 140), spacing: 14)], spacing: 18) {
                         ForEach(Array(notebook.pages.enumerated()), id: \.element.id) { index, page in
-                            let current = visiblePages.contains(index)
-                            Button {
-                                onSelect(index)
-                                dismiss()
-                            } label: {
-                                VStack(spacing: 6) {
-                                    PageThumbnail(page: page, dark: dark)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 4)
-                                                .strokeBorder(Color.accentColor, lineWidth: current ? 3 : 0)
-                                        )
-                                    Text("\(index + 1)")
-                                        .font(.caption.monospacedDigit().weight(current ? .bold : .regular))
-                                        .foregroundStyle(current ? Color.accentColor : Color.secondary)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Page \(index + 1)")
-                            .id(index)
+                            cell(page, index: index)
+                                .id(index)
                         }
                     }
                     .padding(16)
@@ -45,12 +34,99 @@ struct PageGridSheet: View {
                     }
                 }
             }
-            .navigationTitle(notebook.title)
+            .navigationTitle(selecting ? selectionTitle : notebook.title)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+            .toolbar { toolbar }
+            .confirmationDialog(
+                pendingDelete.count == 1 ? "Delete this page?" : "Delete \(pendingDelete.count) pages?",
+                isPresented: Binding(
+                    get: { !pendingDelete.isEmpty },
+                    set: { if !$0 { pendingDelete = [] } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button(pendingDelete.count == 1 ? "Delete Page" : "Delete \(pendingDelete.count) Pages", role: .destructive) {
+                    onDelete(pendingDelete)
+                    selected.subtract(pendingDelete)
+                    pendingDelete = []
+                    selecting = false
                 }
+            } message: {
+                Text("The writing on these pages will be erased. This can't be undone.")
+            }
+        }
+    }
+
+    private var selectionTitle: String {
+        selected.isEmpty ? "Select Pages" : "\(selected.count) Selected"
+    }
+
+    @ToolbarContentBuilder
+    private var toolbar: some ToolbarContent {
+        if selecting {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") {
+                    selecting = false
+                    selected = []
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button("Delete", role: .destructive) {
+                    pendingDelete = selected
+                }
+                .tint(.red)
+                .disabled(selected.isEmpty)
+            }
+        } else {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Done") { dismiss() }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button("Select") { selecting = true }
+            }
+        }
+    }
+
+    private func cell(_ page: Page, index: Int) -> some View {
+        let current = visiblePages.contains(index)
+        let checked = selected.contains(page.id)
+        return Button {
+            if selecting {
+                if checked { selected.remove(page.id) } else { selected.insert(page.id) }
+            } else {
+                onSelect(index)
+                dismiss()
+            }
+        } label: {
+            VStack(spacing: 6) {
+                PageThumbnail(page: page, dark: dark)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .strokeBorder(Color.accentColor, lineWidth: (selecting ? checked : current) ? 3 : 0)
+                    )
+                    .overlay(alignment: .bottomTrailing) {
+                        if selecting {
+                            Image(systemName: checked ? "checkmark.circle.fill" : "circle")
+                                .font(.title3)
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(checked ? Color.white : Color.secondary, checked ? Color.accentColor : Color.clear)
+                                .background(Circle().fill(.background).padding(2))
+                                .padding(6)
+                        }
+                    }
+                Text("\(index + 1)")
+                    .font(.caption.monospacedDigit().weight(current ? .bold : .regular))
+                    .foregroundStyle(current ? Color.accentColor : Color.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Page \(index + 1)")
+        .accessibilityAddTraits(checked ? .isSelected : [])
+        .contextMenu {
+            Button(role: .destructive) {
+                pendingDelete = [page.id]
+            } label: {
+                Label("Delete Page", systemImage: "trash")
             }
         }
     }

@@ -14,6 +14,8 @@ struct NotebookView: View {
     @State private var currentPage: Int
     @State private var coverOpen = false
     @State private var showingPages = false
+    /// Bumped to rebuild the pager after pages are deleted.
+    @State private var pagerVersion = 0
 
     init(notebookID: UUID, startPage: Int, onClose: @escaping () -> Void) {
         self.notebookID = notebookID
@@ -35,7 +37,7 @@ struct NotebookView: View {
                         currentPage: $currentPage,
                         onShowPages: { showingPages = true }
                     )
-                    .id(spread)
+                    .id("\(spread)-\(pagerVersion)")
 
                     if spread {
                         Spine()
@@ -65,7 +67,8 @@ struct NotebookView: View {
                             ? Set([currentPage - currentPage % 2, currentPage - currentPage % 2 + 1])
                             : Set([currentPage]),
                         dark: colorScheme == .dark,
-                        onSelect: { currentPage = $0 }
+                        onSelect: { currentPage = $0 },
+                        onDelete: deletePages
                     )
                 }
             }
@@ -110,6 +113,13 @@ struct NotebookView: View {
         }
     }
 
+    private func deletePages(_ pageIDs: Set<UUID>) {
+        store.deletePages(pageIDs, in: notebookID)
+        let count = store.notebook(notebookID)?.pages.count ?? 1
+        currentPage = min(currentPage, count - 1)
+        pagerVersion += 1
+    }
+
     private func undo() {
         if let page = store.undo(in: notebookID) { show(page) }
     }
@@ -126,38 +136,26 @@ struct NotebookView: View {
     }
 }
 
-/// The sewn seam down the middle of an open composition book.
+/// The fold down the middle of an open composition book: a soft crease
+/// shadow in the paper's own tones rather than a drawn line.
 struct Spine: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0),
-                    .init(color: .black.opacity(0.15), location: 0.42),
-                    .init(color: .black.opacity(0.3), location: 0.5),
-                    .init(color: .black.opacity(0.15), location: 0.58),
-                    .init(color: .clear, location: 1),
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(width: 30)
+    @Environment(\.colorScheme) private var colorScheme
 
-            // Stitching.
-            Line()
-                .stroke(Color(white: 0.8), style: StrokeStyle(lineWidth: 1.2, dash: [6, 8]))
-                .frame(width: 2)
-        }
+    var body: some View {
+        let depth = colorScheme == .dark ? 0.35 : 0.1
+        LinearGradient(
+            stops: [
+                .init(color: .black.opacity(0), location: 0),
+                .init(color: .black.opacity(depth * 0.5), location: 0.4),
+                .init(color: .black.opacity(depth), location: 0.5),
+                .init(color: .black.opacity(depth * 0.5), location: 0.6),
+                .init(color: .black.opacity(0), location: 1),
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+        .frame(width: 18)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-    }
-
-    private struct Line: Shape {
-        func path(in rect: CGRect) -> Path {
-            Path { path in
-                path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-                path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-            }
-        }
     }
 }

@@ -188,6 +188,8 @@ final class PageViewController: UIViewController, PKCanvasViewDelegate, UIGestur
     private var loadedData: Data
     private var isApplyingExternalChange = false
     private var appliedPen: PenSettings?
+    /// Strokes on the page after the last save, used to spot a newly drawn stroke.
+    private var strokeCount = 0
     private var side: PageSide = .single
 
     // Finger move state.
@@ -220,6 +222,7 @@ final class PageViewController: UIViewController, PKCanvasViewDelegate, UIGestur
         canvas.showsHorizontalScrollIndicator = false
         // Load before attaching the delegate so loading isn't recorded as an edit.
         canvas.drawing = (try? PKDrawing(data: loadedData)) ?? PKDrawing()
+        strokeCount = canvas.drawing.strokes.count
         canvas.delegate = self
         view.addSubview(canvas)
 
@@ -290,17 +293,46 @@ final class PageViewController: UIViewController, PKCanvasViewDelegate, UIGestur
         isApplyingExternalChange = true
         canvas.drawing = (try? PKDrawing(data: data)) ?? PKDrawing()
         isApplyingExternalChange = false
+        strokeCount = canvas.drawing.strokes.count
     }
 
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
         guard !isApplyingExternalChange, !isMoving else { return }
+        if eraseScribble(in: canvasView.drawing) { return }
         commit()
     }
 
     private func commit() {
         let data = canvas.drawing.dataRepresentation()
         loadedData = data
+        strokeCount = canvas.drawing.strokes.count
         onDrawingChange?(pageID, data)
+    }
+
+    /// If the stroke just drawn scribbles over writing, removes that writing and
+    /// the scribble together. They're saved as one change so a single undo
+    /// brings the writing back.
+    private func eraseScribble(in drawing: PKDrawing) -> Bool {
+        guard let pen = appliedPen, pen.scribbleToErase, pen.tool.usesInk else { return false }
+        let strokes = drawing.strokes
+        guard strokes.count == strokeCount + 1, let scribble = strokes.last else { return false }
+
+        let earlier = Array(strokes.dropLast())
+        let erased = ScribbleEraser.strokesErased(by: scribble, in: earlier)
+        guard !erased.isEmpty else { return false }
+
+        let kept = earlier.enumerated().filter { !erased.contains($0.offset) }.map(\.element)
+        // Replace the drawing on the next turn of the run loop, after PencilKit
+        // has finished handling the stroke.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isApplyingExternalChange = true
+            self.canvas.drawing = PKDrawing(strokes: kept)
+            self.isApplyingExternalChange = false
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            self.commit()
+        }
+        return true
     }
 
     // MARK: Moving ink with a finger
@@ -405,18 +437,81 @@ final class LinedPaperView: UIView {
         context.strokePath()
 
         guard let spineEdge else { return }
-        let shade = UIColor.black.withAlphaComponent(isDark ? 0.5 : 0.2).cgColor
+        let shade = UIColor.black.withAlphaComponent(isDark ? 0.3 : 0.08).cgColor
         let clear = UIColor.black.withAlphaComponent(0).cgColor
         guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
                                         colors: [shade, clear] as CFArray,
                                         locations: [0, 1]) else { return }
-        let width: CGFloat = 30
+        let width: CGFloat = 22
         if spineEdge == .left {
             context.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: width, y: 0), options: [])
         } else {
             context.drawLinearGradient(gradient, start: CGPoint(x: bounds.width, y: 0),
                                        end: CGPoint(x: bounds.width - width, y: 0), options: [])
         }
+    }
+}
+
+/// Spots a quick back and forth scribble drawn over writing.
+enum ScribbleEraser {
+    /// Indexes of the strokes a scribble crosses out. Empty if the stroke isn't
+    /// a scribble or there's no writing under it.
+    static func strokesErased(by scribble: PKStroke, in strokes: [PKStroke]) -> Set<Int> {
+        guard isScribble(scribble) else { return [] }
+        let area = scribble.renderBounds
+        var erased = Set<Int>()
+        for (index, stroke) in strokes.enumerated() {
+            let bounds = stroke.renderBounds
+            let overlap = bounds.intersection(area)
+            guard !overlap.isNull, bounds.width > 0, bounds.height > 0 else { continue }
+            // Erase strokes that are at least half covered by the scribble.
+            if overlap.width * overlap.height >= bounds.width * bounds.height * 0.5 {
+                erased.insert(index)
+            }
+        }
+        return erased
+    }
+
+    private static func isScribble(_ stroke: PKStroke) -> Bool {
+        let points = stroke.path.interpolatedPoints(by: .distance(3)).map { $0.location.applying(stroke.transform) }
+        guard points.count >= 10, let duration = stroke.path.last?.timeOffset, duration > 0 else { return false }
+
+        var length: CGFloat = 0
+        for (from, to) in zip(points, points.dropFirst()) {
+            length += hypot(to.x - from.x, to.y - from.y)
+        }
+        let bounds = stroke.renderBounds
+        let span = max(bounds.width, bounds.height)
+        guard span > 16 else { return false }
+
+        // A scribble doubles back on itself many times, covers its area densely
+        // and is drawn fast.
+        let reversals = max(reversalCount(points.map(\.x)), reversalCount(points.map(\.y)))
+        let speed = length / CGFloat(duration)
+        return reversals >= 5 && length > span * 3 && speed > 120
+    }
+
+    /// Counts direction changes along one axis, ignoring wobbles under `threshold` points.
+    private static func reversalCount(_ values: [CGFloat], threshold: CGFloat = 6) -> Int {
+        guard var extreme = values.first else { return 0 }
+        var direction: CGFloat = 0
+        var reversals = 0
+        for value in values.dropFirst() {
+            let delta = value - extreme
+            if direction == 0 {
+                if abs(delta) > threshold {
+                    direction = delta > 0 ? 1 : -1
+                    extreme = value
+                }
+            } else if delta * direction > 0 {
+                extreme = value
+            } else if abs(delta) > threshold {
+                reversals += 1
+                direction = -direction
+                extreme = value
+            }
+        }
+        return reversals
     }
 }
 

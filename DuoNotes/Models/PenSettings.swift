@@ -86,6 +86,8 @@ struct PenSettings: Codable, Equatable {
     var eraserWidth: Double = 16
     var fingerDraws = false
     var appearance: Appearance = .system
+    /// Scribbling quickly over writing erases it.
+    var scribbleToErase = true
 
     var inkColor: RGBA {
         colors.indices.contains(selectedColor) ? colors[selectedColor] : colors[0]
@@ -105,6 +107,23 @@ struct PenSettings: Codable, Equatable {
         case .lasso:
             return PKLassoTool()
         }
+    }
+}
+
+extension PenSettings {
+    /// Reads saved settings, using the default for anything missing, so
+    /// adding a new setting never resets the ones already chosen.
+    init(from decoder: Decoder) throws {
+        self.init()
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        tool = try container.decodeIfPresent(Tool.self, forKey: .tool) ?? tool
+        colors = try container.decodeIfPresent([RGBA].self, forKey: .colors) ?? colors
+        selectedColor = try container.decodeIfPresent(Int.self, forKey: .selectedColor) ?? selectedColor
+        penWidth = try container.decodeIfPresent(Double.self, forKey: .penWidth) ?? penWidth
+        eraserWidth = try container.decodeIfPresent(Double.self, forKey: .eraserWidth) ?? eraserWidth
+        fingerDraws = try container.decodeIfPresent(Bool.self, forKey: .fingerDraws) ?? fingerDraws
+        appearance = try container.decodeIfPresent(Appearance.self, forKey: .appearance) ?? appearance
+        scribbleToErase = try container.decodeIfPresent(Bool.self, forKey: .scribbleToErase) ?? scribbleToErase
     }
 }
 

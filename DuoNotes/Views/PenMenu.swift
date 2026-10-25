@@ -89,6 +89,15 @@ struct PenMenu: View {
                 }
                 .pickerStyle(.segmented)
             }
+            Toggle(isOn: binding(\.scribbleToErase)) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Scribble to Erase")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Scribble quickly over writing to delete it")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             section("Appearance") {
                 Picker("Appearance", selection: binding(\.appearance)) {
                     ForEach(Appearance.allCases) { Text($0.name).tag($0) }

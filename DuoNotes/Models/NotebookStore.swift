@@ -104,6 +104,21 @@ final class NotebookStore {
         }
     }
 
+    /// Removes pages for good. The notebook keeps an even number of pages,
+    /// with at least two, so blank paper is added at the end if needed.
+    func deletePages(_ pageIDs: Set<UUID>, in id: UUID) {
+        guard !pageIDs.isEmpty else { return }
+        undoStacks[id]?.removeAll { pageIDs.contains($0.page) }
+        redoStacks[id]?.removeAll { pageIDs.contains($0.page) }
+        mutate(id) { notebook in
+            notebook.pages.removeAll { pageIDs.contains($0.id) }
+            let target = max(2, notebook.pages.count + notebook.pages.count % 2)
+            while notebook.pages.count < target {
+                notebook.pages.append(Page())
+            }
+        }
+    }
+
     // MARK: Drawings
 
     func drawing(notebook id: UUID, page pageID: UUID) -> Data? {
