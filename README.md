@@ -41,7 +41,7 @@ DuoNotes/
     PenSettings.swift      Pen, colours, sizes, appearance
   Views/
     HomeView.swift         Full screen cover, bookshelf, new notebook sheet
-    NotebookView.swift     Open notebook and cover animation
+    NotebookView.swift     Open notebook, seam and pen menu placement
     BookPager.swift        Page curl, lined paper, PencilKit canvas, finger move
     PenMenu.swift          Collapsible pen menu and colour wheel
     PageGridSheet.swift    Page thumbnails

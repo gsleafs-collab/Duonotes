@@ -12,7 +12,6 @@ struct NotebookView: View {
     @Environment(SettingsStore.self) private var settings
     @Environment(\.colorScheme) private var colorScheme
     @State private var currentPage: Int
-    @State private var coverOpen = false
     @State private var showingPages = false
     /// Bumped to rebuild the pager after pages are deleted.
     @State private var pagerVersion = 0
@@ -42,8 +41,6 @@ struct NotebookView: View {
                     if spread {
                         Spine()
                     }
-
-                    cover(notebook, spread: spread, size: geo.size)
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -58,8 +55,6 @@ struct NotebookView: View {
                 .padding(.bottom, 26)
                 // Keep the open menu clear of the camera at the top of the screen.
                 .padding(.top, 64)
-                .opacity(coverOpen ? 1 : 0)
-                .allowsHitTesting(coverOpen)
             }
             .sheet(isPresented: $showingPages) {
                 if let notebook = store.notebook(notebookID) {
@@ -79,40 +74,22 @@ struct NotebookView: View {
         .background(Color(PaperPalette(dark: colorScheme == .dark).paper).ignoresSafeArea())
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
-        .onAppear(perform: open)
+        .onAppear(perform: evenUpPages)
         .onDisappear { store.flushSaves() }
         .onChange(of: currentPage) { _, page in
             store.setLastPage(page, of: notebookID)
         }
     }
 
-    /// The front cover. Upright it swings open on its spine. In a spread it
-    /// lifts away, since the whole screen showed the cover a moment ago.
-    private func cover(_ notebook: Notebook, spread: Bool, size: CGSize) -> some View {
-        CompositionCover(title: notebook.title, ink: notebook.coverInk, seed: notebook.id, fullBleed: true)
-            .frame(width: size.width, height: size.height)
-            .rotation3DEffect(.degrees(!spread && coverOpen ? -90 : 0), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.4)
-            .scaleEffect(spread && coverOpen ? 1.06 : 1)
-            .opacity(coverOpen ? 0 : 1)
-            .allowsHitTesting(false)
-    }
-
-    private func open() {
-        // Older notebooks may have an odd page count. Round up so a spread is never half empty.
+    /// Older notebooks may have an odd page count. Round up so a spread is never half empty.
+    private func evenUpPages() {
         if let count = store.notebook(notebookID)?.pages.count {
             store.ensurePageCount(notebookID, count)
-        }
-        withAnimation(.easeIn(duration: 0.5).delay(0.1)) {
-            coverOpen = true
         }
     }
 
     private func close() {
-        withAnimation(.easeOut(duration: 0.4)) {
-            coverOpen = false
-        } completion: {
-            onClose()
-        }
+        onClose()
     }
 
     private func deletePages(_ pageIDs: Set<UUID>) {

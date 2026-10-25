@@ -21,10 +21,12 @@ struct HomeView: View {
             ZStack {
                 if let openNotebook {
                     NotebookView(notebookID: openNotebook, startPage: store.lastPage(of: openNotebook)) {
-                        self.openNotebook = nil
+                        open(nil)
                     }
+                    .transition(.opacity)
                 } else if let notebook = selectedNotebook {
                     cover(notebook)
+                        .transition(.opacity)
                 } else {
                     emptyShelf
                 }
@@ -32,9 +34,9 @@ struct HomeView: View {
             .frame(width: geo.size.width, height: geo.size.height)
             .onChange(of: unfolded) { _, isUnfolded in
                 if isUnfolded {
-                    if openNotebook == nil, !showingShelf { openNotebook = selectedNotebook?.id }
+                    if openNotebook == nil, !showingShelf { open(selectedNotebook?.id) }
                 } else {
-                    openNotebook = nil
+                    open(nil)
                 }
             }
         }
@@ -60,7 +62,7 @@ struct HomeView: View {
     private func cover(_ notebook: Notebook) -> some View {
         CompositionCover(title: notebook.title, ink: notebook.coverInk, seed: notebook.id, fullBleed: true)
             .contentShape(Rectangle())
-            .onTapGesture { openNotebook = notebook.id }
+            .onTapGesture { open(notebook.id) }
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel("Open \(notebook.title)")
             .overlay(alignment: .bottomTrailing) {
@@ -89,6 +91,14 @@ struct HomeView: View {
         } actions: {
             Button("New Notebook") { showingShelf = true }
                 .buttonStyle(.borderedProminent)
+        }
+    }
+
+    /// Opens a notebook, or closes it with nil, by crossfading between
+    /// the cover and the pages.
+    private func open(_ id: UUID?) {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            openNotebook = id
         }
     }
 
