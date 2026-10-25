@@ -4,10 +4,11 @@ Composition notebooks for the iPhone Duo. Write on lined paper with Apple Pencil
 
 ## What it does
 
-- **Front screen.** The current notebook's marbled cover fills the screen. Swipe left or right to switch books and tap the cover to open it. The books button in the corner adds, renames, recolours or deletes notebooks.
-- **Opening a notebook** swings the cover open onto lined paper that fills the screen.
-- **One page or two.** Held upright you get one page. Turn the phone sideways and it opens into a two page spread with the spine down the middle.
+- **Front screen.** The current notebook's marbled cover fills the screen. The books button in the corner switches, adds, renames, recolours or deletes notebooks.
+- **Opening a notebook.** Tap the cover or unfold the Duo. The book opens at the last page you had open. Folding the Duo, or Close Book in the pen menu, goes back to the cover.
+- **One page or two.** Held upright you get one page. Turn the phone sideways and it opens into a two page spread with a stitched seam down the middle.
 - **Page flipping.** Drag from the right edge with a finger to flip forward, or from the left edge to flip back. Flipping past the last page adds fresh paper.
+- **Page thumbnails.** Tap the page number at the bottom of a page to see every page and jump to one.
 - **Pencil writes, finger moves.** Apple Pencil writes. Drag ink with a finger to pick up that word or doodle and move it.
 - **Pen menu.** A small round pen button in the corner opens the menu:
   - Pen, pencil, highlighter, eraser and lasso
@@ -43,5 +44,6 @@ DuoNotes/
     NotebookView.swift     Open notebook and cover animation
     BookPager.swift        Page curl, lined paper, PencilKit canvas, finger move
     PenMenu.swift          Collapsible pen menu and colour wheel
+    PageGridSheet.swift    Page thumbnails
     CompositionCover.swift Marbled cover
 ```

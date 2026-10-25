@@ -62,7 +62,28 @@ final class NotebookStore {
         mutate(id) { $0.cover = cover }
     }
 
+    // MARK: Last open page
+
+    private static let lastPagesKey = "lastPages"
+
+    /// The page the notebook was last open at, so it reopens where you left off.
+    func lastPage(of id: UUID) -> Int {
+        let pages = UserDefaults.standard.dictionary(forKey: Self.lastPagesKey) as? [String: Int]
+        let page = pages?[id.uuidString] ?? 0
+        let count = notebook(id)?.pages.count ?? 1
+        return min(max(page, 0), max(count - 1, 0))
+    }
+
+    func setLastPage(_ page: Int, of id: UUID) {
+        var pages = UserDefaults.standard.dictionary(forKey: Self.lastPagesKey) as? [String: Int] ?? [:]
+        pages[id.uuidString] = page
+        UserDefaults.standard.set(pages, forKey: Self.lastPagesKey)
+    }
+
     func delete(_ id: UUID) {
+        var pages = UserDefaults.standard.dictionary(forKey: Self.lastPagesKey) as? [String: Int] ?? [:]
+        pages[id.uuidString] = nil
+        UserDefaults.standard.set(pages, forKey: Self.lastPagesKey)
         pendingSaves[id]?.cancel()
         pendingSaves[id] = nil
         undoStacks[id] = nil

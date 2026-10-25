@@ -18,6 +18,8 @@ struct BookPager: UIViewControllerRepresentable {
     let pen: PenSettings
     let dark: Bool
     @Binding var currentPage: Int
+    /// Called when a page number is tapped.
+    var onShowPages: () -> Void
 
     /// Width of the strip along the outer edges where a finger starts a page turn.
     static let turnEdge: CGFloat = 44
@@ -59,7 +61,10 @@ struct BookPager: UIViewControllerRepresentable {
             if !pages.isEmpty {
                 let direction: UIPageViewController.NavigationDirection = first > coordinator.displayedFirst ? .forward : .reverse
                 coordinator.displayedFirst = first
-                pager.setViewControllers(pages, direction: direction, animated: true)
+                coordinator.isTurning = true
+                pager.setViewControllers(pages, direction: direction, animated: true) { [weak coordinator] _ in
+                    coordinator?.isTurning = false
+                }
             }
         }
 
@@ -111,6 +116,9 @@ struct BookPager: UIViewControllerRepresentable {
             controller.onDrawingChange = { [weak store] pageID, data in
                 store?.setDrawing(data, notebook: notebookID, page: pageID)
             }
+            controller.onNumberTap = { [weak self] in
+                self?.parent.onShowPages()
+            }
             controller.apply(pen: parent.pen, dark: parent.dark, side: side(for: index))
             return controller
         }
@@ -147,9 +155,21 @@ struct BookPager: UIViewControllerRepresentable {
         /// Only a finger near the outer edges turns pages, so Apple Pencil can
         /// write right up to the edge and a finger can move ink elsewhere.
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            guard touch.type == .direct, let view = pager?.view else { return false }
+            guard touch.type == .direct, !(touch.view is UIControl), let view = pager?.view else { return false }
             let x = touch.location(in: view).x
             return x < BookPager.turnEdge || x > view.bounds.width - BookPager.turnEdge
+        }
+
+        /// Refuses a turn with no page to land on, such as back from page one,
+        /// and a second turn while one is still animating. UIPageViewController
+        /// can crash in both cases.
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard !isTurning, let view = pager?.view else { return false }
+            let turningBack = gestureRecognizer.location(in: view).x < view.bounds.midX
+            if turningBack {
+                return displayedFirst > 0
+            }
+            return displayedFirst + (parent.spread ? 2 : 1) < NotebookStore.maxPages
         }
     }
 }
@@ -159,10 +179,11 @@ final class PageViewController: UIViewController, PKCanvasViewDelegate, UIGestur
     let index: Int
     let pageID: UUID
     var onDrawingChange: ((UUID, Data) -> Void)?
+    var onNumberTap: (() -> Void)?
 
     private let paper = LinedPaperView()
     private let canvas = PKCanvasView()
-    private let numberLabel = UILabel()
+    private let numberButton = UIButton(type: .system)
     private let movePan = UIPanGestureRecognizer()
     private var loadedData: Data
     private var isApplyingExternalChange = false
@@ -208,9 +229,11 @@ final class PageViewController: UIViewController, PKCanvasViewDelegate, UIGestur
         movePan.delegate = self
         canvas.addGestureRecognizer(movePan)
 
-        numberLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-        numberLabel.text = "\(index + 1)"
-        view.addSubview(numberLabel)
+        numberButton.setTitle("\(index + 1)", for: .normal)
+        numberButton.titleLabel?.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+        numberButton.accessibilityLabel = "Page \(index + 1). Show all pages"
+        numberButton.addAction(UIAction { [weak self] _ in self?.onNumberTap?() }, for: .touchUpInside)
+        view.addSubview(numberButton)
     }
 
     override func viewDidLayoutSubviews() {
@@ -231,11 +254,13 @@ final class PageViewController: UIViewController, PKCanvasViewDelegate, UIGestur
         canvas.contentSize = bounds.size
         canvas.contentOffset = .zero
 
-        // Page number in the outer bottom corner, clear of the rounded screen corners.
-        numberLabel.sizeToFit()
-        let inset: CGFloat = 30
-        let x = side == .left ? inset : bounds.width - numberLabel.bounds.width - inset
-        numberLabel.frame.origin = CGPoint(x: x, y: bounds.height - numberLabel.bounds.height - inset)
+        // Page number centred at the bottom, away from the page turn edges.
+        // The frame is larger than the text so it's easy to tap.
+        let size = CGSize(width: 64, height: 40)
+        numberButton.frame = CGRect(x: (bounds.width - size.width) / 2,
+                                    y: bounds.height - size.height - 14,
+                                    width: size.width,
+                                    height: size.height)
     }
 
     func apply(pen: PenSettings, dark: Bool, side: PageSide) {
@@ -250,7 +275,7 @@ final class PageViewController: UIViewController, PKCanvasViewDelegate, UIGestur
         canvas.overrideUserInterfaceStyle = dark ? .dark : .light
         paper.isDark = dark
         paper.spineEdge = side == .left ? .right : (side == .right ? .left : nil)
-        numberLabel.textColor = PaperPalette(dark: dark).number
+        numberButton.tintColor = PaperPalette(dark: dark).number
         if self.side != side {
             self.side = side
             view.setNeedsLayout()
@@ -282,6 +307,7 @@ final class PageViewController: UIViewController, PKCanvasViewDelegate, UIGestur
 
     /// Leaves the outer edge free for turning the page.
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if touch.view is UIControl { return false }
         let x = touch.location(in: view).x
         let edge = BookPager.turnEdge
         switch side {

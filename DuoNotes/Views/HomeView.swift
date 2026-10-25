@@ -1,8 +1,14 @@
 import SwiftUI
 
-/// The front screen: one notebook cover filling the display.
-/// Swipe to switch books, tap to open.
+/// The front screen: the selected notebook's cover filling the display.
+///
+/// Tap the cover, or unfold the iPhone Duo, to open the book where you left
+/// off. Folding the Duo closes it again. Switch books with the books button.
 struct HomeView: View {
+    /// The Duo's outer screen is about 466 points across and the inner screen
+    /// about 626, so anything at least this wide on its short side is unfolded.
+    private static let unfoldedWidth: CGFloat = 560
+
     @Environment(NotebookStore.self) private var store
     @AppStorage("selectedNotebook") private var savedSelection = ""
     @State private var selection: UUID?
@@ -10,80 +16,69 @@ struct HomeView: View {
     @State private var showingShelf = false
 
     var body: some View {
-        ZStack {
-            if let openNotebook {
-                NotebookView(notebookID: openNotebook) {
-                    self.openNotebook = nil
+        GeometryReader { geo in
+            let unfolded = min(geo.size.width, geo.size.height) >= Self.unfoldedWidth
+            ZStack {
+                if let openNotebook {
+                    NotebookView(notebookID: openNotebook, startPage: store.lastPage(of: openNotebook)) {
+                        self.openNotebook = nil
+                    }
+                } else if let notebook = selectedNotebook {
+                    cover(notebook)
+                } else {
+                    emptyShelf
                 }
-            } else if store.notebooks.isEmpty {
-                emptyShelf
-            } else {
-                covers
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .onChange(of: unfolded) { _, isUnfolded in
+                if isUnfolded {
+                    if openNotebook == nil, !showingShelf { openNotebook = selectedNotebook?.id }
+                } else {
+                    openNotebook = nil
+                }
             }
         }
+        .ignoresSafeArea()
         .statusBarHidden()
         .onAppear(perform: restoreSelection)
         .onChange(of: selection) { _, id in
             savedSelection = id?.uuidString ?? ""
-        }
-        .onChange(of: store.notebooks.map(\.id)) { _, ids in
-            if let selection, ids.contains(selection) { return }
-            selection = store.shelf.first?.id
         }
         .sheet(isPresented: $showingShelf) {
             BookshelfSheet(selection: $selection)
         }
     }
 
-    private var covers: some View {
-        TabView(selection: $selection) {
-            ForEach(store.shelf) { notebook in
-                CompositionCover(title: notebook.title, style: notebook.cover, seed: notebook.id, fullBleed: true)
-                    .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture { openNotebook = notebook.id }
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityLabel("Open \(notebook.title)")
-                    .tag(Optional(notebook.id))
-            }
+    /// The chosen notebook, falling back to the first one if it was deleted.
+    private var selectedNotebook: Notebook? {
+        if let selection, let notebook = store.notebook(selection) {
+            return notebook
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .ignoresSafeArea()
-        .overlay(alignment: .bottom) {
-            if store.notebooks.count > 1 {
-                pageDots.padding(.bottom, 30)
-            }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            Button {
-                showingShelf = true
-            } label: {
-                Image(systemName: "books.vertical.fill")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-                    .background(.black.opacity(0.75), in: Circle())
-                    .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 1))
-                    .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
-            }
-            .accessibilityLabel("Switch notebook")
-            .padding(.trailing, 22)
-            .padding(.bottom, 22)
-        }
+        return store.shelf.first
     }
 
-    private var pageDots: some View {
-        HStack(spacing: 8) {
-            ForEach(store.shelf) { notebook in
-                Circle()
-                    .fill(.white.opacity(notebook.id == selection ? 1 : 0.4))
-                    .frame(width: 7, height: 7)
+    private func cover(_ notebook: Notebook) -> some View {
+        CompositionCover(title: notebook.title, style: notebook.cover, seed: notebook.id, fullBleed: true)
+            .contentShape(Rectangle())
+            .onTapGesture { openNotebook = notebook.id }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("Open \(notebook.title)")
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    showingShelf = true
+                } label: {
+                    Image(systemName: "books.vertical.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 56, height: 56)
+                        .background(.black.opacity(0.75), in: Circle())
+                        .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 1))
+                        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
+                }
+                .accessibilityLabel("Switch notebook")
+                .padding(.trailing, 26)
+                .padding(.bottom, 30)
             }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(.black.opacity(0.6), in: Capsule())
-        .accessibilityHidden(true)
     }
 
     private var emptyShelf: some View {

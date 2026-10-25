@@ -40,9 +40,11 @@ struct Notebook: Identifiable, Codable, Hashable {
 /// every layout.
 enum PaperMetrics {
     static let width: CGFloat = 440
-    static let lineSpacing: CGFloat = 34
-    static let topMargin: CGFloat = 80
+    static let lineSpacing: CGFloat = 28
+    static let topMargin: CGFloat = 76
     static let leftMargin: CGFloat = 52
+    /// Typical page height on the iPhone Duo, used for thumbnails.
+    static let typicalHeight: CGFloat = 625
 }
 
 /// Paper colours for light and dark mode.
