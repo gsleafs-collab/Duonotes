@@ -162,7 +162,7 @@ struct PenMenu: View {
 
     private var colorRow: some View {
         section("Colour") {
-            HStack(spacing: 14) {
+            HStack(spacing: 12) {
                 ForEach(0..<settings.pen.colors.count, id: \.self) { index in
                     let selected = settings.pen.selectedColor == index
                     Button {
@@ -191,11 +191,12 @@ struct PenMenu: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(selected ? "Change colour \(index + 1)" : "Colour \(index + 1)")
                 }
-                Text("Tap the selected colour to pick a new one")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity)
+            Text("Tap the selected colour to pick a new one")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -204,11 +205,10 @@ struct PenMenu: View {
         let keyPath: WritableKeyPath<PenSettings, Double> = erasing ? \.eraserWidth : \.penWidth
         let width = binding(keyPath)
         let presets = erasing ? PenSettings.eraserPresets : PenSettings.penPresets
-        let range = erasing ? PenSettings.eraserRange : PenSettings.penRange
         let largest = presets.last ?? 1
 
-        return section(erasing ? "Eraser Size" : "Tip Size", detail: "\(Int(width.wrappedValue.rounded()))") {
-            HStack(spacing: 10) {
+        return section(erasing ? "Eraser Size" : "Tip Size") {
+            HStack(spacing: 14) {
                 ForEach(presets, id: \.self) { size in
                     let selected = abs(width.wrappedValue - size) < 0.01
                     Button {
@@ -225,7 +225,7 @@ struct PenMenu: View {
                     .accessibilityLabel("Size \(Int(size.rounded()))")
                 }
             }
-            Slider(value: width, in: range, step: 0.5)
+            .frame(maxWidth: .infinity)
         }
     }
 

@@ -71,16 +71,18 @@ struct PenSettings: Codable, Equatable {
 
     static let penPresets: [Double] = [1.5, 3, 5, 8]
     static let eraserPresets: [Double] = [8, 16, 30, 50]
-    static let penRange: ClosedRange<Double> = 1...12
-    static let eraserRange: ClosedRange<Double> = 4...60
 
     var tool: Tool = .pen
-    /// Three ink slots. Black ink shows as white on dark paper.
-    var colors: [RGBA] = [
-        RGBA(red: 0.11, green: 0.11, blue: 0.13),
-        RGBA(red: 0.12, green: 0.33, blue: 0.78),
-        RGBA(red: 0.80, green: 0.16, blue: 0.16),
+    static let defaultColors: [RGBA] = [
+        RGBA(red: 0.11, green: 0.11, blue: 0.13), // black
+        RGBA(red: 0.12, green: 0.33, blue: 0.78), // blue
+        RGBA(red: 0.80, green: 0.16, blue: 0.16), // red
+        RGBA(red: 0.10, green: 0.52, blue: 0.27), // green
+        RGBA(red: 0.55, green: 0.24, blue: 0.75), // purple
     ]
+
+    /// Five ink slots. Black ink shows as white on dark paper.
+    var colors: [RGBA] = PenSettings.defaultColors
     var selectedColor = 0
     var penWidth: Double = 3
     var eraserWidth: Double = 16
@@ -118,6 +120,10 @@ extension PenSettings {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         tool = try container.decodeIfPresent(Tool.self, forKey: .tool) ?? tool
         colors = try container.decodeIfPresent([RGBA].self, forKey: .colors) ?? colors
+        // Settings saved with fewer slots get the remaining default colours.
+        if colors.count < Self.defaultColors.count {
+            colors += Self.defaultColors[colors.count...]
+        }
         selectedColor = try container.decodeIfPresent(Int.self, forKey: .selectedColor) ?? selectedColor
         penWidth = try container.decodeIfPresent(Double.self, forKey: .penWidth) ?? penWidth
         eraserWidth = try container.decodeIfPresent(Double.self, forKey: .eraserWidth) ?? eraserWidth

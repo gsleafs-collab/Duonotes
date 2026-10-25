@@ -56,6 +56,8 @@ struct NotebookView: View {
                 )
                 .padding(.trailing, 22)
                 .padding(.bottom, 26)
+                // Keep the open menu clear of the camera at the top of the screen.
+                .padding(.top, 64)
                 .opacity(coverOpen ? 1 : 0)
                 .allowsHitTesting(coverOpen)
             }
