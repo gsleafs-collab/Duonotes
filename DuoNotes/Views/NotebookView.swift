@@ -89,7 +89,7 @@ struct NotebookView: View {
     /// The front cover. Upright it swings open on its spine. In a spread it
     /// lifts away, since the whole screen showed the cover a moment ago.
     private func cover(_ notebook: Notebook, spread: Bool, size: CGSize) -> some View {
-        CompositionCover(title: notebook.title, style: notebook.cover, seed: notebook.id, fullBleed: true)
+        CompositionCover(title: notebook.title, ink: notebook.coverInk, seed: notebook.id, fullBleed: true)
             .frame(width: size.width, height: size.height)
             .rotation3DEffect(.degrees(!spread && coverOpen ? -90 : 0), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.4)
             .scaleEffect(spread && coverOpen ? 1.06 : 1)

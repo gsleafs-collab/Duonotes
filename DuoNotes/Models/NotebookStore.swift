@@ -44,9 +44,9 @@ final class NotebookStore {
     // MARK: Notebooks
 
     @discardableResult
-    func createNotebook(title: String, cover: CoverStyle, id: UUID = UUID()) -> Notebook {
+    func createNotebook(title: String, cover: CoverStyle, customCover: RGBA? = nil, id: UUID = UUID()) -> Notebook {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let notebook = Notebook(id: id, title: trimmed.isEmpty ? "Untitled" : trimmed, cover: cover)
+        let notebook = Notebook(id: id, title: trimmed.isEmpty ? "Untitled" : trimmed, cover: cover, customCover: customCover)
         notebooks.append(notebook)
         saveNow(notebook.id)
         return notebook
@@ -59,7 +59,14 @@ final class NotebookStore {
     }
 
     func setCover(_ id: UUID, to cover: CoverStyle) {
-        mutate(id) { $0.cover = cover }
+        mutate(id) {
+            $0.cover = cover
+            $0.customCover = nil
+        }
+    }
+
+    func setCustomCover(_ id: UUID, to color: RGBA) {
+        mutate(id) { $0.customCover = color }
     }
 
     // MARK: Last open page

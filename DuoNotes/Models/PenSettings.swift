@@ -3,7 +3,7 @@ import PencilKit
 import SwiftUI
 
 /// A colour that can be saved.
-struct RGBA: Codable, Equatable {
+struct RGBA: Codable, Hashable {
     var red: Double
     var green: Double
     var blue: Double

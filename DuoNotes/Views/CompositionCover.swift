@@ -6,7 +6,7 @@ struct CompositionCover: View {
     static let aspectRatio: CGFloat = 0.72
 
     let title: String
-    let style: CoverStyle
+    let ink: Color
     /// Gives each notebook its own marble pattern that never changes.
     let seed: UUID
     /// Fills the screen edge to edge with no rounded corners or shadow.
@@ -18,11 +18,11 @@ struct CompositionCover: View {
             let spine = min(size.width * 0.11, 64)
             let labelWidth = min((size.width - spine) * 0.74, size.height * 0.5)
             ZStack(alignment: .topLeading) {
-                MarbleView(ink: style.ink, seed: seed)
+                MarbleView(ink: ink, seed: seed)
 
                 // Cloth tape over the spine.
                 Rectangle()
-                    .fill(style.ink)
+                    .fill(ink)
                     .frame(width: spine, height: size.height)
                     .overlay(alignment: .trailing) {
                         Rectangle().fill(.white.opacity(0.18)).frame(width: 1)

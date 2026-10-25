@@ -28,9 +28,13 @@ struct Notebook: Identifiable, Codable, Hashable {
     var id = UUID()
     var title: String
     var cover: CoverStyle
+    /// A colour picked from the spectrum. Overrides `cover` when set.
+    var customCover: RGBA?
     var createdAt = Date()
     var updatedAt = Date()
     var pages: [Page] = [Page(), Page()]
+
+    var coverInk: Color { customCover?.color ?? cover.ink }
 }
 
 /// Page layout in logical points. Drawings are stored in these coordinates,

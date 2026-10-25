@@ -58,7 +58,7 @@ struct HomeView: View {
     }
 
     private func cover(_ notebook: Notebook) -> some View {
-        CompositionCover(title: notebook.title, style: notebook.cover, seed: notebook.id, fullBleed: true)
+        CompositionCover(title: notebook.title, ink: notebook.coverInk, seed: notebook.id, fullBleed: true)
             .contentShape(Rectangle())
             .onTapGesture { openNotebook = notebook.id }
             .accessibilityAddTraits(.isButton)
@@ -111,6 +111,7 @@ struct BookshelfSheet: View {
     @State private var renameTarget: Notebook?
     @State private var renameText = ""
     @State private var deleteTarget: Notebook?
+    @State private var colourTarget: Notebook?
 
     var body: some View {
         NavigationStack {
@@ -122,7 +123,7 @@ struct BookshelfSheet: View {
                             dismiss()
                         } label: {
                             VStack(spacing: 6) {
-                                CompositionCover(title: notebook.title, style: notebook.cover, seed: notebook.id)
+                                CompositionCover(title: notebook.title, ink: notebook.coverInk, seed: notebook.id)
                                     .aspectRatio(CompositionCover.aspectRatio, contentMode: .fit)
                                     .padding(4)
                                     .overlay(
@@ -165,6 +166,14 @@ struct BookshelfSheet: View {
                     selection = notebook.id
                 }
             }
+            .sheet(item: $colourTarget) { notebook in
+                ColorWheelSheet(
+                    initial: UIColor(notebook.coverInk),
+                    onChange: { store.setCustomCover(notebook.id, to: RGBA($0)) },
+                    onDone: { colourTarget = nil }
+                )
+                .presentationDetents([.medium, .large])
+            }
             .alert("Rename Notebook", isPresented: Binding(
                 get: { renameTarget != nil },
                 set: { if !$0 { renameTarget = nil } }
@@ -202,6 +211,12 @@ struct BookshelfSheet: View {
             ForEach(CoverStyle.allCases) { style in
                 Button(style.name) { store.setCover(notebook.id, to: style) }
             }
+            Divider()
+            Button {
+                colourTarget = notebook
+            } label: {
+                Label("Any Colour…", systemImage: "paintpalette")
+            }
         } label: {
             Label("Cover Colour", systemImage: "paintpalette")
         }
@@ -220,6 +235,8 @@ struct NewNotebookSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var cover: CoverStyle = .classic
+    @State private var useCustom = false
+    @State private var customColor = Color(red: 0.0, green: 0.45, blue: 0.5)
     @State private var id = UUID()
 
     var body: some View {
@@ -234,21 +251,30 @@ struct NewNotebookSheet: View {
                             ForEach(CoverStyle.allCases) { style in
                                 Button {
                                     cover = style
+                                    useCustom = false
                                 } label: {
-                                    CompositionCover(title: title, style: style, seed: id)
-                                        .frame(width: 84, height: 84 / CompositionCover.aspectRatio)
-                                        .padding(4)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .strokeBorder(Color.accentColor, lineWidth: cover == style ? 3 : 0)
-                                        )
+                                    coverPreview(ink: style.ink, selected: !useCustom && cover == style)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel(style.name)
                             }
+                            Button {
+                                useCustom = true
+                            } label: {
+                                coverPreview(ink: customColor, selected: useCustom)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Custom colour")
                         }
                         .padding(.vertical, 8)
                     }
+                    ColorPicker("Any Colour", selection: Binding(
+                        get: { customColor },
+                        set: {
+                            customColor = $0
+                            useCustom = true
+                        }
+                    ), supportsOpacity: false)
                 }
             }
             .navigationTitle("New Notebook")
@@ -259,12 +285,27 @@ struct NewNotebookSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        let notebook = store.createNotebook(title: title, cover: cover, id: id)
+                        let notebook = store.createNotebook(
+                            title: title,
+                            cover: cover,
+                            customCover: useCustom ? RGBA(UIColor(customColor)) : nil,
+                            id: id
+                        )
                         dismiss()
                         onCreate(notebook)
                     }
                 }
             }
         }
+    }
+
+    private func coverPreview(ink: Color, selected: Bool) -> some View {
+        CompositionCover(title: title, ink: ink, seed: id)
+            .frame(width: 84, height: 84 / CompositionCover.aspectRatio)
+            .padding(4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.accentColor, lineWidth: selected ? 3 : 0)
+            )
     }
 }
